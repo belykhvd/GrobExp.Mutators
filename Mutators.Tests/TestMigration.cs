@@ -15,6 +15,99 @@ namespace Mutators.Tests
     [Parallelizable(ParallelScope.All)]
     public class TestMigration : TestBase
     {
+        public class Source
+        {
+            public int R1000 { get; set; }
+        }        
+
+        public class Internal
+        {
+            public string Status { get; set; }
+        }
+
+        public class Context : MutatorsContext
+        {
+            public override string GetKey() => Guid.NewGuid().ToString();
+            
+            public bool HasPermission { get; set; }
+        }
+
+        [Test]
+        public void ValTest()
+        {
+            var context = new Context { HasPermission = true };
+
+            var source = new Source
+            {
+                R1000 = 500              
+            };
+            
+            var converterCollection = new TestConverterCollection<Source, Internal>(pathFormatterCollection, configurator =>
+            {
+                configurator.Target(x => x.Status)                            
+                            .Set(x => x.R1000.ToString());
+            });
+
+            var converter = converterCollection.GetConverter(MutatorsContext.Empty);
+            
+            var internalObject = converter(source);
+
+            var internalWithContextObject = new Internal
+            {
+                Status = internalObject.Status                
+            };            
+
+            var internalConfiguratorCollection = new TestDataConfiguratorCollection<Internal>(null, null, pathFormatterCollection, configurator =>
+            {
+                configurator.Target(x => x.Status)
+                            .InvalidIf<Internal, Internal, string, Context>((x, c) => x.Status == "500" && c.HasPermission, x => new TestText { Text = "Статус должен быть 200" });
+            });
+
+            var mutatorsTree = internalConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty);       
+            var internalValidator = mutatorsTree.GetValidatorWithContext<Context>();
+            var result = internalValidator(internalWithContextObject, context).ToList();
+
+            var migratedTree = converterCollection.MigratePaths(mutatorsTree, MutatorsContext.Empty);
+            var migratedInternalValidator = migratedTree.GetValidatorWithContext<Context>();
+            var migratedResult = migratedInternalValidator(internalWithContextObject, context).ToList();
+        }
+
+
+        [Test]
+        public void TestMigratePathsWithContext()
+        {
+            var configuratorCollection = new TestDataConfiguratorCollection<SourceTestData>(null, null, pathFormatterCollection, configurator =>
+            {
+                var subConfigurator = configurator.GoTo(x => x.As.Each());
+                subConfigurator.Target(x => x.SomethingNormal).Required(x => new TestText
+                {
+                    Text = x.Info
+                });
+            });
+            var converterCollection = new TestConverterCollection<TargetTestData, SourceTestData>(pathFormatterCollection, configurator =>
+            {
+                var subConfigurator = configurator.GoTo(x => x.As.Each(), x => x.As.Current());
+                subConfigurator.Target(x => x.SomethingNormal).Set(x => x.SomethingNormal);
+                subConfigurator.Target(x => x.Info).Set(x => x.Info);
+            });
+            var mutatorsTree = configuratorCollection.GetMutatorsTree(MutatorsContext.Empty);
+            var migratedTree = converterCollection.MigratePaths(mutatorsTree, MutatorsContext.Empty);
+
+            // validator should take ConverterContext as parameter
+            var validator = migratedTree.GetValidator();
+            var validationResult = validator(new SourceTestData
+            {
+                As = new[]
+                        {
+                            new SourceA
+                                {
+                                    SomethingNormal = "",
+                                    Info = "info",
+                                }
+                        }
+            });
+        }
+
         [Test]
         public void TestProperty()
         {

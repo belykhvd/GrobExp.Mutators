@@ -96,6 +96,11 @@ namespace GrobExp.Mutators
             }
         }
 
+        protected internal override Action<TChild, TContext, ValidationResultTreeNode> BuildValidatorWithContext<TChild, TContext>(Expression<Func<TData, TChild>> path)
+        {
+            throw new NotImplementedException();
+        }
+
         private readonly MutatorsTreeBase<TData>[] trees;
     }
 }

@@ -34,6 +34,11 @@ namespace GrobExp.Mutators.Validators
             return new InvalidIfConfiguration(typeof(TData), creator, priority, Prepare(condition), Prepare(message), validationResultType);
         }
 
+        public static InvalidIfConfiguration Create<TData, TContext>(MutatorsCreator creator, int priority, Expression<Func<TData, TContext, bool?>> condition, Expression<Func<TData, MultiLanguageTextBase>> message, ValidationResultType validationResultType)
+        {
+            return new InvalidIfConfiguration(typeof(TData), creator, priority, Prepare(condition), Prepare(message), validationResultType);
+        }
+
         internal override MutatorConfiguration ToRoot(LambdaExpression path)
         {
             // ReSharper disable ConvertClosureToMethodGroup

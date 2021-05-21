@@ -75,6 +75,18 @@ namespace GrobExp.Mutators
             return (child, validationResultTree) => compiledValidator(child, validationResultTree, priority);
         }
 
+        protected internal override Action<TChild, TContext, ValidationResultTreeNode> BuildValidatorWithContext<TChild, TContext>(Expression<Func<TData, TChild>> path)
+        {
+            Expression<Action<TChild, TContext, ValidationResultTreeNode, int>> validator = null;
+            var node = tree.Traverse(path.Body, false);
+            if (node != null)
+                validator = (Expression<Action<TChild, TContext, ValidationResultTreeNode, int>>) node.BuildTreeValidatorWithContext<TContext>(pathFormatter);
+            if (validator == null)
+                return (child, context, validationResultTree) => { };
+            var compiledValidator = LambdaCompiler.Compile(validator, CompilerOptions.All);
+            return (child, context, validationResultTree) => compiledValidator(child, context, validationResultTree, priority);
+        }
+
         protected internal override Func<TValue, bool> BuildStaticValidator<TValue>(Expression<Func<TData, TValue>> path)
         {
             Expression<Func<TValue, List<ValidationResult>>> validator = null;
