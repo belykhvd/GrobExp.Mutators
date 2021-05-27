@@ -15,6 +15,73 @@ namespace Mutators.Tests
     [Parallelizable(ParallelScope.All)]
     public class TestMigration : TestBase
     {
+        public class OuterContract
+        {
+            public Context Context { get; set; }
+            public int? Field { get; set; }
+        }
+
+        public class Context
+        {
+            public int ContextField { get; set; }
+        }
+
+        public class InnerContract
+        {
+            public string StringField { get; set; }
+            public SubClass SubObject { get; set; }
+        }
+
+        public class SubClass
+        {
+            public string SubField { get; set; }
+        }
+
+        [Test]
+        public void TestContextInContract()
+        {
+            var converterCollection = new NewTestConverterCollection<OuterContract, InnerContract, Context>(pathFormatterCollection, configurator =>
+            {
+                configurator.Target(x => x.StringField)
+                            .If((x, c) => x.Field == 4 && c.ContextField == 5)
+                            .Set((x, c) => (x.Field + c.ContextField).ToString());
+            });
+
+            var outerDataConfiguratorCollection = new TestDataConfiguratorCollection<OuterContract>(null, null, pathFormatterCollection, configurator =>
+            {
+                //configurator.Target(x => x.Field).RequiredIf((OuterContract x, Context c) => c.ContextField == 5);
+                configurator.Target(x => x.Field).InvalidIf(x => x.Field == 4, x => null);
+            });
+
+            var innerDataConfiguratorCollection = new TestDataConfiguratorCollection<InnerContract>(null, null, pathFormatterCollection, configurator =>
+            {
+                configurator.Target(x => x.StringField).InvalidIf(x => x.StringField != "4", x => null);
+            });
+
+            var converter = converterCollection.GetConverter(MutatorsContext.Empty);
+            
+            var mutatorsTree = outerDataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty);
+            var innerMutatorsTree = innerDataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty);
+            
+            var validatorOuter = mutatorsTree.GetValidator();
+
+            var migratedTree = converterCollection.MigratePaths(innerMutatorsTree, MutatorsContext.Empty);
+            var innerMigratedValidator = migratedTree.GetValidator();
+
+            var outer = new OuterContract
+            {
+                Context = new Context {ContextField = 5},
+                Field = 4
+            };
+
+            var inner = converter(outer);
+            
+            var outerValidationResult = validatorOuter(outer).ToList();
+            var innerValidationResult = innerMigratedValidator(inner).ToList();
+
+            Assert.AreEqual(inner.StringField, (outer.Field + outer.Context.ContextField).ToString());
+        }
+
         [Test]
         public void TestProperty()
         {

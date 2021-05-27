@@ -68,6 +68,21 @@ namespace GrobExp.Mutators
             return configurator;
         }
 
+        public static MutatorsConfigurator<TRoot, TChild, TValue> RequiredIf<TRoot, TChild, TValue, TContext>(
+            this MutatorsConfigurator<TRoot, TChild, TValue> configurator,
+            Expression<Func<TChild, TContext, bool?>> condition,
+            Expression<Func<TChild, MultiLanguageTextBase>> message,
+            int priority = 0,
+            ValidationResultType type = ValidationResultType.Error)
+        {
+            var rewrittenCondition = ContextRewriter.Rebuild<TRoot, TContext>(condition.Parameters[0], condition.Body);
+
+            var pathToValue = (Expression<Func<TRoot, TValue>>)configurator.PathToValue.ReplaceEachWithCurrent();
+            var pathToChild = (Expression<Func<TRoot, TChild>>)configurator.PathToChild.ReplaceEachWithCurrent();
+            configurator.SetMutator(RequiredIfConfiguration.Create(MutatorsCreator.Sharp, priority, pathToChild.Merge(rewrittenCondition), pathToValue, pathToChild.Merge(message), type));
+            return configurator;
+        }
+
         public static MutatorsConfigurator<TRoot, TChild, TValue> RequiredIf<TRoot, TChild, TValue>(
             this MutatorsConfigurator<TRoot, TChild, TValue> configurator,
             Expression<Func<TChild, bool?>> condition,
@@ -98,6 +113,17 @@ namespace GrobExp.Mutators
             ValidationResultType type = ValidationResultType.Error)
         {
             return configurator.RequiredIf(condition, child => new ValueRequiredText {Title = configurator.Title}, priority, type);
+        }
+
+        public static MutatorsConfigurator<TRoot, TChild, TValue> RequiredIf<TRoot, TChild, TValue, TContext>(
+            this MutatorsConfigurator<TRoot, TChild, TValue> configurator,
+            Expression<Func<TChild, TContext, bool?>> condition,
+            int priority = 0,
+            ValidationResultType type = ValidationResultType.Error)
+        {
+
+
+            return configurator.RequiredIf(condition, child => new ValueRequiredText { Title = configurator.Title }, priority, type);
         }
 
         public static MutatorsConfigurator<TRoot, TChild, string> IsLike<TRoot, TChild>(
