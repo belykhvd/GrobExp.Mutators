@@ -1,39 +1,45 @@
+using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 
 namespace GrobExp.Mutators
 {
     public static class ContextRewriter
     {
-        public static LambdaExpression Rebuild<TSource, TContext>(ParameterExpression rootParameter, Expression lambdaBody)
+        public static LambdaExpression Rebuild<TRoot, TContext>(ParameterExpression rootParameter, ReadOnlyCollection<ParameterExpression> parameters, Expression lambdaBody)
         {
-            var rewriter = new RootContextRewriter<TSource, TContext>(rootParameter);
+            var excludingContext = parameters.Where(x => x.Type != typeof(TContext)).ToArray();
+
+            var rewriter = new RootContextRewriter<TRoot, TContext>(rootParameter, excludingContext);
             return rewriter.Rebuild(lambdaBody);
         }
 
-        private sealed class RootContextRewriter<TSource, TContext> : ExpressionVisitor
-        {
-            private readonly MemberInfo rootContextMemberInfo = typeof(TSource).GetMember("Context").First();
-            private readonly ParameterExpression rootParameter;
+        private sealed class RootContextRewriter<TRoot, TContext> : ExpressionVisitor
+        {            
             private readonly MemberExpression rootContextAccess;
+            private readonly ParameterExpression[] parameters;            
 
-            public RootContextRewriter(ParameterExpression rootParameter)
+            public RootContextRewriter(ParameterExpression rootParameter, ParameterExpression[] parameters)
             {
-                this.rootParameter = rootParameter;
-                rootContextAccess = Expression.MakeMemberAccess(rootParameter, rootContextMemberInfo);
+                var contextMemberInfo = typeof(TRoot).GetMember("Context").FirstOrDefault();
+                if (contextMemberInfo == null)
+                    throw new ArgumentException($"Type {typeof(TRoot)} does not contain Context member");
+
+                this.parameters = parameters;
+                rootContextAccess = Expression.MakeMemberAccess(rootParameter, contextMemberInfo);
             }
 
             public LambdaExpression Rebuild(Expression lambdaBody)
             {
                 var rewrittenBody = Visit(lambdaBody);
-                return Expression.Lambda(rewrittenBody, rootParameter);
+                return Expression.Lambda(rewrittenBody, parameters);
             }
 
             protected override Expression VisitParameter(ParameterExpression node)
             {
                 return node.Type == typeof(TContext)
-                    ? (Expression)rootContextAccess
+                    ? (Expression) rootContextAccess
                     : node;
             }
         }

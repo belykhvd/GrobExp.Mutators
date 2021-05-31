@@ -40,7 +40,7 @@ namespace Mutators.Tests
         [Test]
         public void TestContextInContract()
         {
-            var converterCollection = new NewTestConverterCollection<OuterContract, InnerContract, Context>(pathFormatterCollection, configurator =>
+            var converterCollection = new TestConverterCollection<OuterContract, InnerContract, Context>(pathFormatterCollection, configurator =>
             {
                 configurator.Target(x => x.StringField)
                             .If((x, c) => x.Field == 4 && c.ContextField == 5)
@@ -80,6 +80,43 @@ namespace Mutators.Tests
             var innerValidationResult = innerMigratedValidator(inner).ToList();
 
             Assert.AreEqual(inner.StringField, (outer.Field + outer.Context.ContextField).ToString());
+        }
+
+        [Test]
+        public void TestMigratePathsWithContext()
+        {
+            var configuratorCollection = new TestDataConfiguratorCollection<SourceTestData>(null, null, pathFormatterCollection, configurator =>
+            {
+                var subConfigurator = configurator.GoTo(x => x.As.Each());
+                subConfigurator.Target(x => x.SomethingNormal).Required(x => new TestText
+                {
+                    Text = x.Info
+                });
+            });
+            var converterCollection = new TestConverterCollection<TargetTestData, SourceTestData, MyContext>(pathFormatterCollection, configurator =>
+            {
+                var subConfigurator = configurator.GoTo(x => x.As.Each(), x => x.As.Current());
+                subConfigurator.Target(x => x.SomethingNormal).If((_, __, c) => c.Value).Set(x => x.SomethingNormal);
+                subConfigurator.Target(x => x.Info).Set(x => x.Info);
+            });
+            var mutatorsTree = configuratorCollection.GetMutatorsTree(MutatorsContext.Empty);
+            var migratedTree = converterCollection.MigratePaths(mutatorsTree, MutatorsContext.Empty);
+
+            // validator should take ConverterContext as parameter
+            var validator = migratedTree.GetValidator();
+            var validationResult = validator(new SourceTestData
+            {
+                As = new[]
+                        {
+                            new SourceA
+                                {
+                                    SomethingNormal = "zzzz",
+                                    Info = "info",
+                                }
+                        },
+
+                Context = new MyContext {}
+            });
         }
 
         [Test]
@@ -266,6 +303,8 @@ namespace Mutators.Tests
     public class SourceTestData
     {
         public SourceA[] As { get; set; }
+
+        public MyContext Context { get; set; }
     }
 
     public class SourceA
@@ -296,6 +335,8 @@ namespace Mutators.Tests
     public class TargetTestData
     {
         public TargetA[] As { get; set; }
+
+        public MyContext Context { get; set; }
     }
 
     public class TargetA

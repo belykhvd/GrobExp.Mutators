@@ -69,24 +69,24 @@ namespace Mutators.Tests
         private readonly Action<ConverterConfigurator<TSource, TDest>> action;
     }
 
-    public class NewTestConverterCollection<TSource, TDest, TContext> : NewConverterCollection<TSource, TDest, TContext> where TDest : new()
+    public class TestConverterCollection<TSource, TDest, TContext> : NewConverterCollection<TSource, TDest, TContext> where TDest : new()
     {
-        public NewTestConverterCollection(IPathFormatterCollection pathFormatterCollection, Action<NewConverterConfigurator<TSource, TDest, TContext>> action)
+        public TestConverterCollection(IPathFormatterCollection pathFormatterCollection, Action<ConverterConfigurator<TSource, TDest, TContext>> action)
             : this(pathFormatterCollection, action, new TestStringConverter())
         {
         }
 
-        public NewTestConverterCollection(IPathFormatterCollection pathFormatterCollection, Action<NewConverterConfigurator<TSource, TDest, TContext>> action, IStringConverter stringConverter)
+        public TestConverterCollection(IPathFormatterCollection pathFormatterCollection, Action<ConverterConfigurator<TSource, TDest, TContext>> action, IStringConverter stringConverter)
             : base(pathFormatterCollection, stringConverter)
         {
             this.action = action;
         }
 
-        protected override void Configure(MutatorsContext context, NewConverterConfigurator<TSource, TDest, TContext> configurator)
+        protected override void Configure(MutatorsContext context, ConverterConfigurator<TSource, TDest, TContext> configurator)
         {
             action(configurator);
         }
 
-        private readonly Action<NewConverterConfigurator<TSource, TDest, TContext>> action;
+        private readonly Action<ConverterConfigurator<TSource, TDest, TContext>> action;
     }
 }

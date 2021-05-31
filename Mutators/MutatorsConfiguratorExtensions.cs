@@ -74,11 +74,10 @@ namespace GrobExp.Mutators
             Expression<Func<TChild, MultiLanguageTextBase>> message,
             int priority = 0,
             ValidationResultType type = ValidationResultType.Error)
-        {
-            var rewrittenCondition = ContextRewriter.Rebuild<TRoot, TContext>(condition.Parameters[0], condition.Body);
-
+        {            
             var pathToValue = (Expression<Func<TRoot, TValue>>)configurator.PathToValue.ReplaceEachWithCurrent();
             var pathToChild = (Expression<Func<TRoot, TChild>>)configurator.PathToChild.ReplaceEachWithCurrent();
+            var rewrittenCondition = ContextRewriter.Rebuild<TRoot, TContext>(pathToChild.Parameters[0], condition.Parameters, condition.Body);
             configurator.SetMutator(RequiredIfConfiguration.Create(MutatorsCreator.Sharp, priority, pathToChild.Merge(rewrittenCondition), pathToValue, pathToChild.Merge(message), type));
             return configurator;
         }

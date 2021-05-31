@@ -430,6 +430,40 @@ namespace Mutators.Tests
             to.AssertEqualsToUsingGrobuf(expected);
         }
 
+        [Test]
+        public void TestConvertWithContext()
+        {
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.If((data2, data, context) => context.Value).Target(data => data.S).Set(data2 => data2.T.S); });
+            var converter = collection.GetConverter(MutatorsContext.Empty);
+            var from = new TestData2 { T = new T { S = "zzz" }, Context = new MyContext { Value = true } };
+            var to = converter(from);
+            var expected = new TestData { S = "zzz" };
+            to.AssertEqualsToUsingGrobuf(expected);
+        }
+
+        [Test]
+        public void TestConvertWithGotoAndContext()
+        {
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.GoTo(data => data.Qxx, data2 => data2.Qxx).If((data2, data, context) => context.Value).Target(qxx => qxx.A0).Set(qxx2 => qxx2.A0 * 2); });
+            var converter = collection.GetConverter(MutatorsContext.Empty);
+            var from = new TestData2 { Qxx = new Qxx { A0 = 5 }, Context = new MyContext { Value = true } };
+            var to = converter(from);
+            var expected = new TestData { Qxx = new Qxx { A0 = 10 } };
+            to.AssertEqualsToUsingGrobuf(expected);
+        }
+
+        [Test]
+        public void TestConvertWithConverterFromContext()
+        {
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.Target(data => data.F).Set((data2, data, context) => context.StringConverter.Convert(data2.S)); });
+            var converter = collection.GetConverter(MutatorsContext.Empty);
+            var from = new TestData2 { S = "zzz", Context = new MyContext { StringConverter = new MyStringConverter() } };
+            var to = converter(from);
+            var expected = new TestData { F = "zzzzzz" };
+            to.AssertEqualsToUsingGrobuf(expected);
+        }
+
+
         [Test(Description = "Group by is not supported by DependenciesExtractor")]
         public void TestConvert_GroupByIsNotSupported()
         {
@@ -1207,6 +1241,8 @@ namespace Mutators.Tests
 
             public DateTime? Date1 { get; set; }
             public DateTime? Date2 { get; set; }
+
+            public MyContext Context { get; set; }
         }
 
         public class T
@@ -1351,5 +1387,25 @@ namespace Mutators.Tests
             public int? Cn { get; set; }
             public int? Dn { get; set; }
         }
+    }
+
+    public class MyContext
+    {
+        public bool Value { get; set; }
+
+        public IMyStringConverter StringConverter { get; set; }
+    }
+
+    public class MyStringConverter : IMyStringConverter
+    {
+        public string Convert(string s)
+        {
+            return s + s;
+        }
+    }
+
+    public interface IMyStringConverter
+    {
+        string Convert(string s);
     }
 }

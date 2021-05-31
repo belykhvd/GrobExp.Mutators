@@ -36,6 +36,31 @@ namespace Mutators.Tests
     public class ValidatorsTest : TestBase
     {
         [Test]
+        public void TestConverterWithValidator()
+        {
+            var converterCollection = new TestConverterCollection<TestData3, TestData2, MyContext>(pathFormatterCollection, configurator =>
+            {
+                configurator.Target(data2 => data2.S).Set((data3, data2, context) => context.StringConverter.Convert(data3.S));
+                configurator.Target(data2 => data2.T.S).Set(data3 => data3.X.ToString(), x => x, s => ValidationResult.Error(new SimplePathFormatterText()));
+                configurator.Target(data2 => data2.W.S).If((data3, data2, context) => context.Value).Set(x => x.Y.ToString());
+            });
+
+            var converter = converterCollection.GetConverter(MutatorsContext.Empty);
+            var testData3 = new TestData3 { S = "zzz", X = 25, Y = 92, Context = new MyContext
+            {
+                StringConverter = new MyStringConverter(),
+                Value = true,
+            }};
+            var result = converter(testData3);
+            Assert.That(result.S, Is.EqualTo("zzzzzz"));
+            Assert.That(result.T.S, Is.EqualTo("25"));
+            Assert.That(result.W.S, Is.EqualTo("92"));
+            var validator = converterCollection.GetValidationsTree(MutatorsContext.Empty, 0).GetValidator();
+            var validationResultTreeNode = validator(testData3);
+            validationResultTreeNode.AssertEquivalent(new ValidationResultTreeNode<TestData> { { "X", FormattedValidationResult.Error(new SimplePathFormatterText(), "25", new SimplePathFormatterText { Paths = new[] { "X" } }) } });
+        }
+
+        [Test]
         public void TestProperty()
         {
             var collection = new TestDataConfiguratorCollection<TestData>(null, null, pathFormatterCollection, configurator => configurator.Target(data => data.S).InvalidIf(data => data.A.S != null, data => null));
@@ -1149,6 +1174,8 @@ namespace Mutators.Tests
             public string S { get; set; }
             public int X { get; set; }
             public int Y { get; set; }
+
+            public MyContext Context { get; set; }
         }
     }
 }

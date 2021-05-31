@@ -1,9 +1,3 @@
-using GrEmit.Utils;
-using GrobExp.Compiler;
-using GrobExp.Mutators.AutoEvaluators;
-using GrobExp.Mutators.CustomFields;
-using GrobExp.Mutators.ModelConfiguration;
-using GrobExp.Mutators.Visitors;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,6 +7,15 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+
+using GrEmit.Utils;
+
+using GrobExp.Compiler;
+using GrobExp.Mutators.AutoEvaluators;
+using GrobExp.Mutators.CustomFields;
+using GrobExp.Mutators.ModelConfiguration;
+using GrobExp.Mutators.Visitors;
+
 using Vostok.Logging.Abstractions;
 
 namespace GrobExp.Mutators
@@ -70,7 +73,7 @@ namespace GrobExp.Mutators
             return mutatorsTree?.MigratePaths<TSource>(GetOrCreateHashtableSlot(context).ConverterTree);
         }
 
-        protected abstract void Configure(MutatorsContext context, NewConverterConfigurator<TSource, TDest, TContext> configurator);
+        protected abstract void Configure(MutatorsContext context, ConverterConfigurator<TSource, TDest, TContext> configurator);
 
         protected virtual void BeforeConvert(TSource source)
         {
@@ -92,7 +95,7 @@ namespace GrobExp.Mutators
                     if (slot == null)
                     {
                         var tree = ModelConfigurationNode.CreateRoot(GetType(), typeof(TDest));
-                        ConfigureInternal(context, new NewConverterConfigurator<TSource, TDest, TContext>(tree));
+                        ConfigureInternal(context, new ConverterConfigurator<TSource, TDest, TContext>(tree));
                         var validationsTree = ModelConfigurationNode.CreateRoot(GetType(), typeof(TSource));
                         tree.ExtractValidationsFromConverters(validationsTree);
 
@@ -255,7 +258,7 @@ namespace GrobExp.Mutators
             return customFields.Select(info => new CustomFieldInfoZ(info.Path, info.RootProperty, info.TitleType, Expression.Lambda(info.Value, parameter))).ToArray();
         }
 
-        private void ConfigureCustomFields(NewConverterConfigurator<TSource, TDest, TContext> configurator, LambdaExpression pathToSourceChild, LambdaExpression pathToDestChild, Func<Expression, bool> sourceCustomFieldFits, Func<Expression, bool> destCustomFieldFits)
+        private void ConfigureCustomFields(ConverterConfigurator<TSource, TDest, TContext> configurator, LambdaExpression pathToSourceChild, LambdaExpression pathToDestChild, Func<Expression, bool> sourceCustomFieldFits, Func<Expression, bool> destCustomFieldFits)
         {
             var sourceChildType = pathToSourceChild.Body.Type;
             var destChildType = pathToDestChild.Body.Type;
@@ -417,7 +420,7 @@ namespace GrobExp.Mutators
             return Expression.Convert(value, type);
         }
 
-        private void ConfigureCustomFields(NewConverterConfigurator<TSource, TDest, TContext> configurator)
+        private void ConfigureCustomFields(ConverterConfigurator<TSource, TDest, TContext> configurator)
         {
             var sourceParameter = Expression.Parameter(typeof(TSource));
             var destParameter = Expression.Parameter(typeof(TDest));
@@ -442,7 +445,7 @@ namespace GrobExp.Mutators
             ConfigureCustomFieldsForArrays(configurator, typeof(TDest), Expression.Lambda(destParameter, destParameter), sourceCustomFieldFits, destCustomFieldFits);
         }
 
-        private void ConfigureCustomFieldsForArrays(NewConverterConfigurator<TSource, TDest, TContext> configurator, Type type, LambdaExpression pathToDestChild, Func<Expression, bool> sourceCustomFieldFits, Func<Expression, bool> destCustomFieldFits)
+        private void ConfigureCustomFieldsForArrays(ConverterConfigurator<TSource, TDest, TContext> configurator, Type type, LambdaExpression pathToDestChild, Func<Expression, bool> sourceCustomFieldFits, Func<Expression, bool> destCustomFieldFits)
         {
             if (type == null || IsALeaf(type))
                 return;
@@ -473,7 +476,7 @@ namespace GrobExp.Mutators
             }
         }
 
-        protected void ConfigureInternal(MutatorsContext context, NewConverterConfigurator<TSource, TDest, TContext> configurator)
+        protected void ConfigureInternal(MutatorsContext context, ConverterConfigurator<TSource, TDest, TContext> configurator)
         {
             Configure(context, configurator);
             ConfigureCustomFields(configurator);
