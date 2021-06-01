@@ -49,7 +49,7 @@ namespace GrobExp.Mutators
 
         public ConverterConfigurator<TSource, TDest, TContext> If(LambdaExpression condition)
         {
-            var rewrittenCondition = ContextRewriter.Rebuild<TSource, TContext>(condition.Parameters[0], condition.Parameters, condition.Body);
+            var rewrittenCondition = ContextReplacer.Rebuild<TSource, TContext>(condition.Parameters[0], condition.Parameters, condition.Body);
             return new ConverterConfigurator<TSource, TDest, TContext>(reporter, Root, Condition.AndAlso((LambdaExpression) rewrittenCondition.ReplaceEachWithCurrent()));
         }
 
@@ -141,7 +141,7 @@ namespace GrobExp.Mutators
 
         public ConverterConfigurator<TSourceRoot, TSourceChild, TDestRoot, TDestChild, TDestValue, TContext> If(Expression<Func<TSourceChild, TContext, bool?>> condition)
         {
-            var rewrittenLambda = ContextRewriter.Rebuild<TSourceRoot, TContext>(PathToSourceChild.Parameters[0], condition.Parameters, condition.Body);
+            var rewrittenLambda = ContextReplacer.Rebuild<TSourceRoot, TContext>(PathToSourceChild.Parameters[0], condition.Parameters, condition.Body);
             return new ConverterConfigurator<TSourceRoot, TSourceChild, TDestRoot, TDestChild, TDestValue, TContext>(reporter, Root, PathToSourceChild, PathToChild, PathToValue, Condition.AndAlso((LambdaExpression)PathToSourceChild.Merge(rewrittenLambda).ReplaceEachWithCurrent()));
         }
 
@@ -152,7 +152,7 @@ namespace GrobExp.Mutators
 
         public ConverterConfigurator<TSourceRoot, TSourceChild, TDestRoot, TDestChild, TDestValue, TContext> If(Expression<Func<TSourceChild, TDestChild, TContext, bool?>> condition)
         {
-            var rewrittenLambda = (Expression<Func<TSourceChild, TDestChild, bool?>>) ContextRewriter.Rebuild<TSourceRoot, TContext>(PathToSourceChild.Parameters[0], condition.Parameters, condition.Body);
+            var rewrittenLambda = (Expression<Func<TSourceChild, TDestChild, bool?>>) ContextReplacer.Rebuild<TSourceRoot, TContext>(PathToSourceChild.Parameters[0], condition.Parameters, condition.Body);
             return new ConverterConfigurator<TSourceRoot, TSourceChild, TDestRoot, TDestChild, TDestValue, TContext>(Root, PathToSourceChild, PathToChild, PathToValue, Condition.AndAlso((LambdaExpression) rewrittenLambda.MergeFrom2Roots(PathToSourceChild, PathToChild).ReplaceEachWithCurrent()));
         }
 

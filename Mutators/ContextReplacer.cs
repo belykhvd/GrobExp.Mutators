@@ -5,7 +5,7 @@ using System.Linq.Expressions;
 
 namespace GrobExp.Mutators
 {
-    public static class ContextRewriter
+    public static class ContextReplacer
     {
         public static LambdaExpression Rebuild<TRoot, TContext>(ParameterExpression rootParameter, ReadOnlyCollection<ParameterExpression> parameters, Expression lambdaBody)
         {

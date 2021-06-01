@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using GrobExp.Mutators;
 
@@ -18,5 +18,21 @@ namespace Mutators.Tests
         }
 
         private readonly Action<MutatorsConfigurator<TData>> action;
+    }
+
+    public class TestDataConfiguratorCollection<TData, TContext> : DataConfiguratorCollectionBase<TData, TContext>
+    {
+        public TestDataConfiguratorCollection(IDataConfiguratorCollectionFactory dataConfiguratorCollectionFactory, IConverterCollectionFactory converterCollectionFactory, IPathFormatterCollection pathFormatterCollection, Action<MutatorsConfigurator<TData, TContext>> action)
+            : base(dataConfiguratorCollectionFactory, converterCollectionFactory, pathFormatterCollection)
+        {
+            this.action = action;
+        }
+
+        protected override void Configure(MutatorsContext context, MutatorsConfigurator<TData, TContext> configurator)
+        {
+            action(configurator);
+        }
+
+        private readonly Action<MutatorsConfigurator<TData, TContext>> action;
     }
 }
