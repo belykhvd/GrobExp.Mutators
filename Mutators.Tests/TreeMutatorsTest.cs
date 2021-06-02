@@ -1392,6 +1392,7 @@ namespace Mutators.Tests
     public class MyContext
     {
         public bool Value { get; set; }
+        public string StringConstant = nameof(StringConstant);
 
         public IMyStringConverter StringConverter { get; set; }
     }

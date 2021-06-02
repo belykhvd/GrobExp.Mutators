@@ -11,5 +11,7 @@ namespace Mutators.Tests.FunctionalTests.FirstOuterContract
         public FirstContractDocumentHeader Header { get; set; }
 
         public FirstContractDocumentBody[] Document { get; set; }
+
+        public MyContext Context { get; set; }
     }
 }
