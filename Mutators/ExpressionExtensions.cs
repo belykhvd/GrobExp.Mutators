@@ -134,6 +134,11 @@ namespace GrobExp.Mutators
             return Expression.Lambda(Expression.OrElse(convertToNullable ? Convert(leftBody) : leftBody, convertToNullable ? Convert(rightBody) : rightBody), parameters);
         }
 
+        public static LambdaExpression ExcludingContextParameter<TContext>(this LambdaExpression lambda)
+        {
+            return Expression.Lambda(lambda.Body, lambda.Parameters.Where(x => x.Type != typeof(TContext)).ToArray());
+        }
+
         private static Expression Convert(Expression exp)
         {
             return exp.Type == typeof(bool?) ? exp : Expression.Convert(exp, typeof(bool?));

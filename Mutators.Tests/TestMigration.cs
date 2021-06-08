@@ -33,7 +33,7 @@ namespace Mutators.Tests
                 subConfigurator.Target(x => x.Info).Set(x => x.Info);
             });
             var mutatorsTree = configuratorCollection.GetMutatorsTree(MutatorsContext.Empty);
-            var migratedTree = converterCollection.MigratePaths(mutatorsTree, MutatorsContext.Empty);
+            var migratedTree = converterCollection.MigratePathsWithContext(mutatorsTree, MutatorsContext.Empty);
 
             // validator should take ConverterContext as parameter
             var validator = migratedTree.GetValidator();

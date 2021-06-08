@@ -59,7 +59,60 @@ namespace GrobExp.Mutators.ModelConfiguration
             }
 
             body = body.ExtractLoopInvariantFatExpressions(new[] {parameter}, expression => expression);
+
             var lambda = Expression.Lambda(body, parameter, result, priority);
+            return lambda;
+        }
+
+        internal static LambdaExpression BuildTreeValidator<TSource, TContext>(this ModelConfigurationNode node, IPathFormatter pathFormatter)
+        {
+            var allMutators = new Dictionary<ExpressionWrapper, List<MutatorConfiguration>>();
+            node.GetMutators(allMutators);
+
+            var root = new ZzzNode();
+            foreach (var pair in allMutators)
+            {
+                var arrays = GetArrays(node.RootType, pair.Key.Expression, pair.Value);
+                var arrayNode = arrays.Aggregate(root, (current, array) => current.Traverse(array));
+                arrayNode.mutators.Add(new KeyValuePair<Expression, List<MutatorConfiguration>>(pair.Key.Expression, pair.Value));
+            }
+
+            var parameter = node.Parent == null ? (ParameterExpression)node.Path : Expression.Parameter(node.NodeType, node.NodeType.Name);
+            var treeRootType = ValidationResultTreeNodeBuilder.BuildType(parameter.Type);
+            var result = Expression.Parameter(typeof(ValidationResultTreeNode), "tree");
+            var priority = Expression.Parameter(typeof(int), "priority");
+            var aliases = new List<KeyValuePair<Expression, Expression>> { new KeyValuePair<Expression, Expression>(parameter, node.Path) };
+
+            root = GetArrays(node.RootType, node.Path, new MutatorConfiguration[0]).Aggregate(root, (current, array) => current.Traverse(array));
+
+            var validationResults = new List<Expression>();
+            root.BuildValidator(pathFormatter, node, aliases, new Dictionary<ParameterExpression, ExpressionPathsBuilder.SinglePaths>(), result, treeRootType, priority, validationResults);
+
+            //validationResults = validationResults.Select(exp => ExtractLoopInvariantFatExpressions(exp, new []{parameter}, expression => expression)).ToList();
+            validationResults = validationResults.SplitToBatches(parameter, result, priority);
+
+            Expression body;
+            switch (validationResults.Count)
+            {
+                case 0:
+                    body = Expression.Empty();
+                    break;
+                case 1:
+                    body = validationResults[0];
+                    break;
+                default:
+                    body = Expression.Block(validationResults);
+                    break;
+            }
+
+            body = body.ExtractLoopInvariantFatExpressions(new[] { parameter }, expression => expression);
+
+            //Подменяем параметры типа TSource и TContext на Wrapper.Source и Wrapper.Context
+            var wrapperParameter = Expression.Parameter(typeof(Wrapper<TSource, TContext>), "W");
+            var wrapperVisitor = new WrapperVisitor<TSource, TContext>(wrapperParameter);
+            body = wrapperVisitor.Rebuild(body);
+
+            var lambda = Expression.Lambda(body, wrapperParameter, result, priority);
             return lambda;
         }
 

@@ -90,8 +90,7 @@ namespace GrobExp.Mutators
         {            
             var pathToValue = (Expression<Func<TRoot, TValue>>)configurator.PathToValue.ReplaceEachWithCurrent();
             var pathToChild = (Expression<Func<TRoot, TChild>>)configurator.PathToChild.ReplaceEachWithCurrent();
-            var conditionContextReplaced = ContextReplacer.Rebuild<TRoot, TContext>(pathToChild.Parameters[0], condition.Parameters, condition.Body);
-            configurator.SetMutator(RequiredIfConfiguration.Create(MutatorsCreator.Sharp, priority, pathToChild.Merge(conditionContextReplaced), pathToValue, pathToChild.Merge(message), type));
+            configurator.SetMutator(RequiredIfConfiguration.Create(MutatorsCreator.Sharp, priority, pathToChild.Merge(condition.ExcludingContextParameter<TContext>()), pathToValue, pathToChild.Merge(message), type));
             return configurator;
         }
 
@@ -158,15 +157,6 @@ namespace GrobExp.Mutators
         {
             return configurator.RequiredIf(condition, child => new ValueRequiredText { Title = configurator.Title }, priority, type);
         }
-
-        //public static MutatorsConfigurator<TRoot, TChild, TValue, TContext> RequiredIf<TRoot, TChild, TValue, TContext>(
-        //    this MutatorsConfigurator<TRoot, TChild, TValue, TContext> configurator,
-        //    Expression<Func<TChild, TContext, bool?>> condition,
-        //    int priority = 0,
-        //    ValidationResultType type = ValidationResultType.Error)
-        //{
-        //    return configurator.RequiredIf(condition, child => new ValueRequiredText { Title = configurator.Title }, priority, type);
-        //}
 
         public static MutatorsConfigurator<TRoot, TChild, string> IsLike<TRoot, TChild>(
             this MutatorsConfigurator<TRoot, TChild, string> configurator,
@@ -267,23 +257,10 @@ namespace GrobExp.Mutators
             Expression<Func<TChild, MultiLanguageTextBase>> message,
             int priority = 0,
             ValidationResultType type = ValidationResultType.Error)
-        {            
-            var conditionContextReplaced = ContextReplacer.Rebuild<TRoot, TContext>(configurator.PathToChild.Parameters[0], condition.Parameters, condition.Body);
-            configurator.SetMutator(InvalidIfConfiguration.Create(MutatorsCreator.Sharp, priority, (Expression<Func<TChild, bool?>>) conditionContextReplaced, message, type));
+        {
+            configurator.SetMutator(InvalidIfConfiguration.Create(MutatorsCreator.Sharp, priority, (Expression<Func<TChild, bool?>>) condition.ExcludingContextParameter<TContext>(), message, type));
             return configurator;
         }
-
-        //public static MutatorsConfigurator<TRoot, TChild, TValue, TContext> InvalidIf<TRoot, TChild, TValue, TContext>(
-        //    this MutatorsConfigurator<TRoot, TChild, TValue, TContext> configurator,
-        //    Expression<Func<TChild, TContext, bool?>> condition,
-        //    Expression<Func<TChild, MultiLanguageTextBase>> message,
-        //    int priority = 0,
-        //    ValidationResultType type = ValidationResultType.Error)
-        //{
-        //    var conditionContextReplaced = ContextReplacer.Rebuild<TRoot, TContext>(configurator.PathToChild.Parameters[0], condition.Parameters, condition.Body);
-        //    configurator.SetMutator(InvalidIfConfiguration.Create(MutatorsCreator.Sharp, priority, (Expression<Func<TChild, bool?>>)conditionContextReplaced, message, type));
-        //    return configurator;
-        //}
 
         public static MutatorsConfigurator<TRoot, TChild, TValue> InvalidIf<TRoot, TChild, TValue>(
             this MutatorsConfigurator<TRoot, TChild, TValue> configurator,

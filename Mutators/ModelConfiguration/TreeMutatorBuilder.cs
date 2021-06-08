@@ -28,6 +28,51 @@ namespace GrobExp.Mutators.ModelConfiguration
             return node.BuildTreeMutator(destParameter, sourceParameter);
         }
 
+        public static LambdaExpression BuildTreeMutator<TSource, TContext>(this ModelConfigurationNode node)
+        {
+            var wrapperParameter = Expression.Parameter(typeof(Wrapper<TSource, TContext>), "W");
+            var destParameter = node.Parent == null ? (ParameterExpression)node.Path : Expression.Parameter(node.NodeType, node.NodeType.Name);
+            var sourceParameter = Expression.Parameter(typeof(TSource), typeof(TSource).Name);
+            return node.BuildTreeMutator<TSource, TContext>(wrapperParameter, destParameter, sourceParameter);
+        }
+
+        private static LambdaExpression BuildTreeMutator<TSource, TContext>(this ModelConfigurationNode node, ParameterExpression wrapperParameter, [NotNull] ParameterExpression destParameter, [CanBeNull] ParameterExpression sourceParameter)
+        {
+            var visitedNodes = new HashSet<ModelConfigurationNode>();
+            var processedNodes = new HashSet<ModelConfigurationNode>();
+            var mutatorExpressions = new List<Expression>();
+            var parameters = new List<ParameterExpression> { destParameter };
+
+            //Добавляем алиас для случая, когда билдим жиромутатор для поддерева, чтобы заменить путь до корня на реальный параметр выражения
+            var aliases = new List<KeyValuePair<Expression, Expression>> { new KeyValuePair<Expression, Expression>(destParameter, node.Path) };
+            var invariantParameters = new List<ParameterExpression>();
+            if (sourceParameter != null)
+            {
+                parameters.Add(sourceParameter);
+                invariantParameters.Add(sourceParameter);
+            }
+
+            node.BuildTreeMutator(null, node, aliases, mutatorExpressions, visitedNodes, processedNodes, mutatorExpressions, invariantParameters);
+
+            //Оптимизации
+            mutatorExpressions = mutatorExpressions.SplitToBatches(parameters.ToArray());
+            mutatorExpressions.Add(Expression.Empty());
+            Expression body = Expression.Block(mutatorExpressions);
+            body = body.ExtractLoopInvariantFatExpressions(invariantParameters, expression => expression);
+
+            //Подменяем параметры типа TSource и TContext на Wrapper.Source и Wrapper.Context
+            var wrapperVisitor = new WrapperVisitor<TSource, TContext>(wrapperParameter);
+            body = wrapperVisitor.Rebuild(body);
+
+            //Далее параметры мутаторов подменяются на параметры итогового выражения (только destParameter)
+            var actualDestParameter = body.ExtractParameters().Single(p => p.Type == destParameter.Type);
+            if (actualDestParameter != destParameter)
+                body = new ParameterReplacer(actualDestParameter, destParameter).Visit(body);                        
+
+            var result = Expression.Lambda(body, new[] { destParameter, wrapperParameter });
+            return result;
+        }
+
         /// <summary>
         ///     Строит жирный Expression, содержаший все мутации или валидации.
         ///     Все, что нужно после этого - скомпилировать.

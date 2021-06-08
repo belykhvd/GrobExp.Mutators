@@ -39,6 +39,13 @@ namespace GrobExp.Mutators
             return new MutatorsTree<TData>(tree, new PathFormatterWrapper(pathFormatterCollection.GetPathFormatter<T>(), pathFormatterCollection.GetPathFormatter<TData>(), converterTree, performer, resolver), pathFormatterCollection, priority);
         }
 
+        internal override MutatorsTreeBase<TData> MigratePaths<T, TContext>(ModelConfigurationNode converterTree)
+        {
+            var performer = new CompositionPerformer(typeof(TData), typeof(T), typeof(TContext), converterTree);
+            var resolver = new AliasesResolver(ExtractAliases(converterTree, performer));
+            return new MutatorsTree<TData>(tree, new PathFormatterWrapper(pathFormatterCollection.GetPathFormatter<T>(), pathFormatterCollection.GetPathFormatter<TData>(), converterTree, performer, resolver), pathFormatterCollection, priority);
+        }
+
         protected internal override KeyValuePair<Expression, List<KeyValuePair<int, MutatorConfiguration>>> BuildRawMutators<TValue>(Expression<Func<TData, TValue>> path)
         {
             var node = tree.Traverse(path.Body, create : false);
@@ -71,6 +78,18 @@ namespace GrobExp.Mutators
                 validator = (Expression<Action<TChild, ValidationResultTreeNode, int>>)node.BuildTreeValidator(pathFormatter);
             if (validator == null)
                 return (child, validationResultTree) => {};
+            var compiledValidator = LambdaCompiler.Compile(validator, CompilerOptions.All);
+            return (child, validationResultTree) => compiledValidator(child, validationResultTree, priority);
+        }
+
+        protected internal override Action<Wrapper<TChild, TContext>, ValidationResultTreeNode> BuildValidator<TChild, TContext>(Expression<Func<TData, TChild>> path)
+        {
+            Expression<Action<Wrapper<TChild, TContext>, ValidationResultTreeNode, int>> validator = null;
+            var node = tree.Traverse(path.Body, false);
+            if (node != null)
+                validator = (Expression<Action<Wrapper<TChild, TContext>, ValidationResultTreeNode, int>>)node.BuildTreeValidator<TChild, TContext>(pathFormatter);
+            if (validator == null)
+                return (child, validationResultTree) => { };
             var compiledValidator = LambdaCompiler.Compile(validator, CompilerOptions.All);
             return (child, validationResultTree) => compiledValidator(child, validationResultTree, priority);
         }

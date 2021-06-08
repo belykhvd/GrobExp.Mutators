@@ -38,7 +38,5 @@ namespace Mutators.Tests.FunctionalTests.InnerContract
         public decimal? OrdersTotalPackageQuantity { get; set; }
 
         public ContractInfo[] Contracts { get; set; }
-
-        public MyContext Context { get; set; }
     }
 }

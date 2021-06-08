@@ -23,6 +23,12 @@ namespace GrobExp.Mutators.Visitors
             lambda = Expression.Lambda(parameter, parameter);
         }
 
+        internal CompositionPerformer(Type from, Type to, Type contextType, ModelConfigurationNode convertationTree)
+            : this(from, to, convertationTree)
+        {
+            ContextType = contextType;
+        }
+
         internal Expression Perform(Expression expression)
         {
             resolved = true;
@@ -435,7 +441,10 @@ namespace GrobExp.Mutators.Visitors
         private LambdaExpression Perform(LambdaExpression lambdaExpression)
         {
             var body = Visit(lambdaExpression.Body).CanonizeParameters();
-            return Expression.Lambda(body, body.ExtractParameters());
+            var parameters = ContextType == null
+                ? body.ExtractParameters()
+                : body.ExtractParameters().Where(x => x.Type != ContextType);
+            return Expression.Lambda(body, parameters);
         }
 
         private Expression Merge(Expression exp, IEnumerable<Expression> shards)
@@ -519,6 +528,7 @@ namespace GrobExp.Mutators.Visitors
 
         private Type From { get; set; }
         private Type To { get; set; }
+        private Type ContextType { get; set; }
 
         private readonly LambdaExpression lambda;
 

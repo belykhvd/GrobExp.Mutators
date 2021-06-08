@@ -149,8 +149,7 @@ namespace GrobExp.Mutators
             var methodReplacer = new MethodReplacer(MutatorsHelperFunctions.EachMethod, MutatorsHelperFunctions.CurrentMethod);
             var pathToSourceChild = (Expression<Func<TSourceRoot, TSourceChild>>) methodReplacer.Visit(configurator.PathToSourceChild);
             var pathToChild = (Expression<Func<TDestRoot, TDestChild>>) methodReplacer.Visit(configurator.PathToChild);
-            var rewrittenLambda = ContextReplacer.Rebuild<TSourceRoot, TContext>(pathToSourceChild.Parameters[0], value.Parameters, value.Body);            
-            LambdaExpression valueFromRoot = new ExpressionMerger(pathToSourceChild, pathToChild).Merge(rewrittenLambda);
+            LambdaExpression valueFromRoot = new ExpressionMerger(pathToSourceChild, pathToChild).Merge(value.ExcludingContextParameter<TContext>());
             configurator.SetMutator(EqualsToConfiguration.Create(configurator.Root.ConfiguratorType, typeof(TDestRoot), valueFromRoot, null));
             return configurator;
         }
@@ -181,8 +180,7 @@ namespace GrobExp.Mutators
             Expression<Func<TSourceChild, TContext, TTarget>> value)
         {
             var pathToSourceChild = (Expression<Func<TSourceRoot, TSourceChild>>)configurator.PathToSourceChild.ReplaceEachWithCurrent();
-            var rewrittenLambda = ContextReplacer.Rebuild<TSourceRoot, TContext>(pathToSourceChild.Parameters[0], value.Parameters, value.Body);
-            LambdaExpression valueFromRoot = pathToSourceChild.Merge(rewrittenLambda);
+            LambdaExpression valueFromRoot = pathToSourceChild.Merge(value.ExcludingContextParameter<TContext>());
             configurator.SetMutator(EqualsToConfiguration.Create(configurator.Root.ConfiguratorType, typeof(TDestRoot), valueFromRoot, null));
             return configurator;
         }

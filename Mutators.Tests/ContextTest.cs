@@ -22,15 +22,22 @@ namespace Mutators.Tests
                 configurator.Target(x => x.FromGln).RequiredIf((x, c) => c.Value, x => new TestText {Text = "FromGln is required" });
             });
 
-            var validator = dataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty).GetValidator();
+            var validator = dataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty).GetValidator<MyContext>();
 
             var innerDocument = new InnerDocument
             {
-                FromGln = null,
-                Context = new MyContext {Value = true}
+                FromGln = null                
             };
 
-            var validationResult = validator(innerDocument);
+            var context = new MyContext {Value = true};
+
+            var wrapper = new Wrapper<InnerDocument, MyContext>()
+            {
+                Source = innerDocument,
+                Context = context
+            };
+
+            var validationResult = validator(wrapper);
             validationResult.ToList().Should().BeEquivalentTo(new []
             {
                 FormattedValidationResult.Error(new TestText {Text = "FromGln is required"}, null, new SimplePathFormatterText {Paths = new[] {nameof(InnerDocument.FromGln)}})
@@ -45,15 +52,22 @@ namespace Mutators.Tests
                 configurator.Target(x => x.FromGln).InvalidIf((x, c) => x.FromGln == string.Empty && c.Value, x => new TestText {Text = "FromGln is invalid"});
             });
 
-            var validator = dataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty).GetValidator();
+            var validator = dataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty).GetValidator<MyContext>();
 
             var innerDocument = new InnerDocument
             {
-                FromGln = string.Empty,
-                Context = new MyContext {Value = true}
+                FromGln = string.Empty                
             };
 
-            var validationResult = validator(innerDocument);
+            var context = new MyContext {Value = true};
+
+            var wrapper = new Wrapper<InnerDocument, MyContext>
+            {
+                Source = innerDocument,
+                Context = context
+            };
+
+            var validationResult = validator(wrapper);
             validationResult.ToList().Should().BeEquivalentTo(new[]
             {
                 FormattedValidationResult.Error(new TestText {Text = "FromGln is invalid"}, string.Empty, new SimplePathFormatterText {Paths = new[] {nameof(InnerDocument.FromGln)}})
@@ -75,16 +89,23 @@ namespace Mutators.Tests
             });
 
             var mutatorsTree = dataConfiguratorCollection.GetMutatorsTree(MutatorsContext.Empty);
-            var migratedTree = converterCollection.MigratePaths(mutatorsTree, MutatorsContext.Empty);
-            var validator = migratedTree.GetValidator();
+            var migratedTree = converterCollection.MigratePathsWithContext(mutatorsTree, MutatorsContext.Empty);
+            var validator = migratedTree.GetValidator<MyContext>();
 
             var innerDocument = new InnerDocument
             {
-                FromGln = string.Empty,
-                Context = new MyContext {Value = true}
+                FromGln = string.Empty                
             };
 
-            var validationResult = validator(innerDocument);
+            var context = new MyContext { Value = true };
+
+            var wrapper = new Wrapper<InnerDocument, MyContext>
+            {
+                Source = innerDocument,
+                Context = context
+            };
+
+            var validationResult = validator(wrapper);
             validationResult.ToList().Should().BeEquivalentTo(new[]
             {
                 FormattedValidationResult.Error(new TestText {Text = "FromGln is invalid"}, string.Empty, new SimplePathFormatterText {Paths = new[] {nameof(FirstContractDocument.Header.Sender), nameof(MyContext.StringConstant)}})
@@ -108,17 +129,24 @@ namespace Mutators.Tests
                 {
                     Sender = nameof(FirstContractDocumentHeader.Sender),
                     Recipient = nameof(FirstContractDocumentHeader.Recipient)
-                },
-                Context = new MyContext()
+                }                
             };
+
+            var context = new MyContext();
 
             var expectedInnerDocument = new InnerDocument
             {
-                FromGln = outerDocument.Header.Sender + outerDocument.Context.StringConstant,
-                ToGln = outerDocument.Header.Recipient + outerDocument.Context.StringConstant
+                FromGln = outerDocument.Header.Sender + context.StringConstant,
+                ToGln = outerDocument.Header.Recipient + context.StringConstant
+            };
+            
+            var wrapper = new Wrapper<FirstContractDocument, MyContext>
+            {
+                Source = outerDocument,
+                Context = context
             };
 
-            var actualInnerDocument = converter(outerDocument);
+            var actualInnerDocument = converter(wrapper);
             actualInnerDocument.Should().BeEquivalentTo(expectedInnerDocument);
         }
 
@@ -127,7 +155,10 @@ namespace Mutators.Tests
         {
             var converterCollection = new TestConverterCollection<FirstContractDocument, InnerDocument, MyContext>(pathFormatterCollection, configurator =>
             {
-                configurator.If((x, y, c) => c.Value).Target(x => x.FromGln).Set(x => x.Header.Sender);                
+                //configurator.If(x => x.Header.Sender != null).Target(x => x.FromGln).Set(x => x.Header.Sender);
+                //configurator.If(x => x.Header.Sender != null).Target(x => x.ToGln).Set(x => x.Header.Recipient);
+                configurator.If((x, y, c) => c.Value).Target(x => x.FromGln).Set(x => x.Header.Sender);
+                configurator.If((x, y, c) => c.Value).Target(x => x.ToGln).Set(x => x.Header.Recipient);
             });
 
             var converter = converterCollection.GetConverter(MutatorsContext.Empty);
@@ -138,16 +169,24 @@ namespace Mutators.Tests
                 {
                     Sender = nameof(FirstContractDocumentHeader.Sender),
                     Recipient = nameof(FirstContractDocumentHeader.Recipient)
-                },
-                Context = new MyContext {Value = true}
+                }
+            };
+
+            var context = new MyContext {Value = true};
+
+            var wrapper = new Wrapper<FirstContractDocument, MyContext>
+            {
+                Source = outerDocument,
+                Context = context
             };
 
             var expectedInnerDocument = new InnerDocument
             {
-                FromGln = outerDocument.Header.Sender                
+                FromGln = outerDocument.Header.Sender,
+                ToGln = outerDocument.Header.Recipient                 
             };
 
-            var actualInnerDocument = converter(outerDocument);
+            var actualInnerDocument = converter(wrapper);
             actualInnerDocument.Should().BeEquivalentTo(expectedInnerDocument);
         }
     }   

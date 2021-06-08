@@ -433,10 +433,12 @@ namespace Mutators.Tests
         [Test]
         public void TestConvertWithContext()
         {
-            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.If((data2, data, context) => context.Value).Target(data => data.S).Set(data2 => data2.T.S); });
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.If((data2, data, c) => c.Value).Target(data => data.S).Set(data2 => data2.T.S); });
             var converter = collection.GetConverter(MutatorsContext.Empty);
-            var from = new TestData2 { T = new T { S = "zzz" }, Context = new MyContext { Value = true } };
-            var to = converter(from);
+            var from = new TestData2 { T = new T { S = "zzz" } };
+            var context = new MyContext {Value = true};
+            var wrapper = new Wrapper<TestData2, MyContext> {Source = from, Context = context};
+            var to = converter(wrapper);
             var expected = new TestData { S = "zzz" };
             to.AssertEqualsToUsingGrobuf(expected);
         }
@@ -444,10 +446,12 @@ namespace Mutators.Tests
         [Test]
         public void TestConvertWithGotoAndContext()
         {
-            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.GoTo(data => data.Qxx, data2 => data2.Qxx).If((data2, data, context) => context.Value).Target(qxx => qxx.A0).Set(qxx2 => qxx2.A0 * 2); });
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.GoTo(data => data.Qxx, data2 => data2.Qxx).If((data2, data, c) => c.Value).Target(qxx => qxx.A0).Set(qxx2 => qxx2.A0 * 2); });
             var converter = collection.GetConverter(MutatorsContext.Empty);
-            var from = new TestData2 { Qxx = new Qxx { A0 = 5 }, Context = new MyContext { Value = true } };
-            var to = converter(from);
+            var from = new TestData2 { Qxx = new Qxx { A0 = 5 } };
+            var context = new MyContext { Value = true };
+            var wrapper = new Wrapper<TestData2, MyContext> { Source = from, Context = context };
+            var to = converter(wrapper);
             var expected = new TestData { Qxx = new Qxx { A0 = 10 } };
             to.AssertEqualsToUsingGrobuf(expected);
         }
@@ -455,10 +459,12 @@ namespace Mutators.Tests
         [Test]
         public void TestConvertWithConverterFromContext()
         {
-            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.Target(data => data.F).Set((data2, data, context) => context.StringConverter.Convert(data2.S)); });
+            var collection = new TestConverterCollection<TestData2, TestData, MyContext>(pathFormatterCollection, configurator => { configurator.Target(data => data.F).Set((data2, data, c) => c.StringConverter.Convert(data2.S)); });
             var converter = collection.GetConverter(MutatorsContext.Empty);
-            var from = new TestData2 { S = "zzz", Context = new MyContext { StringConverter = new MyStringConverter() } };
-            var to = converter(from);
+            var from = new TestData2 { S = "zzz" };
+            var context = new MyContext { StringConverter = new MyStringConverter() };
+            var wrapper = new Wrapper<TestData2, MyContext> { Source = from, Context = context };
+            var to = converter(wrapper);
             var expected = new TestData { F = "zzzzzz" };
             to.AssertEqualsToUsingGrobuf(expected);
         }
@@ -1241,8 +1247,6 @@ namespace Mutators.Tests
 
             public DateTime? Date1 { get; set; }
             public DateTime? Date2 { get; set; }
-
-            public MyContext Context { get; set; }
         }
 
         public class T

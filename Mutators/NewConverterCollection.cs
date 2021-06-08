@@ -20,7 +20,7 @@ using Vostok.Logging.Abstractions;
 
 namespace GrobExp.Mutators
 {
-    public abstract class NewConverterCollection<TSource, TDest, TContext> : IConverterCollection<TSource, TDest> where TDest : new()
+    public abstract class NewConverterCollection<TSource, TDest, TContext> : INewConverterCollection<TSource, TDest, TContext> where TDest : new()
     {
         protected NewConverterCollection(IPathFormatterCollection pathFormatterCollection, IStringConverter stringConverter, ILog logger)
         {
@@ -34,12 +34,12 @@ namespace GrobExp.Mutators
         {
         }
 
-        public Func<TSource, TDest> GetConverter(MutatorsContext context)
+        public Func<Wrapper<TSource, TContext>, TDest> GetConverter(MutatorsContext context)
         {
             return GetOrCreateHashtableSlot(context).Converter;
         }
 
-        public Action<TSource, TDest> GetMerger(MutatorsContext context)
+        public Action<Wrapper<TSource, TContext>, TDest> GetMerger(MutatorsContext context)
         {
             return GetOrCreateHashtableSlot(context).Merger;
         }
@@ -73,13 +73,18 @@ namespace GrobExp.Mutators
             return mutatorsTree?.MigratePaths<TSource>(GetOrCreateHashtableSlot(context).ConverterTree);
         }
 
+        public MutatorsTreeBase<TDest> MigratePathsWithContext(MutatorsTreeBase<TDest> mutatorsTree, MutatorsContext context)
+        {
+            return mutatorsTree?.MigratePaths<TSource, TContext>(GetOrCreateHashtableSlot(context).ConverterTree);
+        }
+
         protected abstract void Configure(MutatorsContext context, ConverterConfigurator<TSource, TDest, TContext> configurator);
 
-        protected virtual void BeforeConvert(TSource source)
+        protected virtual void BeforeConvert(Wrapper<TSource, TContext> source)
         {
         }
 
-        protected virtual void AfterConvert(TDest dest, TSource source)
+        protected virtual void AfterConvert(TDest dest, Wrapper<TSource, TContext> source)
         {
         }
 
@@ -99,7 +104,7 @@ namespace GrobExp.Mutators
                         var validationsTree = ModelConfigurationNode.CreateRoot(GetType(), typeof(TSource));
                         tree.ExtractValidationsFromConverters(validationsTree);
 
-                        var lazyCompiledConverter = new Lazy<Action<TDest, TSource>>(() => CompileTree(tree, context), LazyThreadSafetyMode.ExecutionAndPublication);
+                        var lazyCompiledConverter = new Lazy<Action<TDest, Wrapper<TSource, TContext>>>(() => CompileTree(tree, context), LazyThreadSafetyMode.ExecutionAndPublication);
 
                         slot = new HashtableSlot
                         {
@@ -130,11 +135,11 @@ namespace GrobExp.Mutators
             return slot;
         }
 
-        private Action<TDest, TSource> CompileTree(ModelConfigurationNode tree, MutatorsContext context)
+        private Action<TDest, Wrapper<TSource, TContext>> CompileTree(ModelConfigurationNode tree, MutatorsContext context)
         {
-            var treeConverter = (Expression<Action<TDest, TSource>>)tree.BuildTreeMutator(typeof(TSource));
+            var treeConverter = (Expression<Action<TDest, Wrapper<TSource, TContext>>>) tree.BuildTreeMutator<TSource, TContext>();
 
-            Action<TDest, TSource> compiledTreeConverter;
+            Action<TDest, Wrapper<TSource, TContext>> compiledTreeConverter;
             var sw = Stopwatch.StartNew();
             try
             {
@@ -530,8 +535,8 @@ namespace GrobExp.Mutators
         {
             public ModelConfigurationNode ConverterTree { get; set; }
             public ModelConfigurationNode ValidationsTree { get; set; }
-            public Func<TSource, TDest> Converter { get; set; }
-            public Action<TSource, TDest> Merger { get; set; }
+            public Func<Wrapper<TSource, TContext>, TDest> Converter { get; set; }
+            public Action<Wrapper<TSource, TContext>, TDest> Merger { get; set; }
 
             public Hashtable ValidationMutatorsTrees { get; set; }
         }

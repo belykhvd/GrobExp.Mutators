@@ -30,6 +30,11 @@ namespace GrobExp.Mutators
             return GetValidator(data => data);
         }
 
+        public Func<Wrapper<TData, TContext>, ValidationResultTreeNode> GetValidator<TContext>()
+        {
+            return GetValidator<TData, TContext>(data => data);
+        }
+
         public Func<TChild, ValidationResultTreeNode> GetValidator<TChild>(Expression<Func<TData, TChild>> path)
         {
             var validator = GetValidatorInternal(path);
@@ -40,6 +45,18 @@ namespace GrobExp.Mutators
                     validator(child, tree);
                     return tree;
                 };
+        }
+
+        public Func<Wrapper<TChild, TContext>, ValidationResultTreeNode> GetValidator<TChild, TContext>(Expression<Func<TData, TChild>> path)
+        {
+            var validator = GetValidatorInternal<TChild, TContext>(path);
+            var factory = ValidationResultTreeNodeBuilder.BuildFactory(typeof(TChild), true);
+            return child =>
+            {
+                var tree = factory(null);
+                validator(child, tree);
+                return tree;
+            };
         }
 
         public Func<TValue, bool> GetStaticValidator<TValue>(Expression<Func<TData, TValue>> path)
@@ -135,8 +152,22 @@ namespace GrobExp.Mutators
             return nodeInfo.Validator;
         }
 
+        internal Action<Wrapper<TChild, TContext>, ValidationResultTreeNode> GetValidatorInternal<TChild, TContext>(Expression<Func<TData, TChild>> path)
+        {
+            var nodeInfo = GetOrCreateNodeInfo<TChild, TContext>(path);
+            if (nodeInfo.Validator == null)
+            {
+                lock (lockObject)
+                    if (nodeInfo.Validator == null)
+                        nodeInfo.Validator = BuildValidator<TChild, TContext>(path);
+            }
+
+            return nodeInfo.Validator;
+        }
+
         internal abstract MutatorsTreeBase<T> Migrate<T>(ModelConfigurationNode converterTree);
         internal abstract MutatorsTreeBase<TData> MigratePaths<T>(ModelConfigurationNode converterTree);
+        internal abstract MutatorsTreeBase<TData> MigratePaths<T, TContext>(ModelConfigurationNode converterTree);
 
         protected List<MutatorConfiguration> Canonize(IEnumerable<KeyValuePair<int, MutatorConfiguration>> mutators)
         {
@@ -222,6 +253,7 @@ namespace GrobExp.Mutators
         protected internal abstract KeyValuePair<Expression, List<KeyValuePair<int, MutatorConfiguration>>> BuildRawMutators<TValue>(Expression<Func<TData, TValue>> path);
         protected internal abstract KeyValuePair<Expression, List<MutatorConfiguration>> BuildMutators<TValue>(Expression<Func<TData, TValue>> path);
         protected internal abstract Action<TChild, ValidationResultTreeNode> BuildValidator<TChild>(Expression<Func<TData, TChild>> path);
+        protected internal abstract Action<Wrapper<TChild, TContext>, ValidationResultTreeNode> BuildValidator<TChild, TContext>(Expression<Func<TData, TChild>> path);
         protected internal abstract Func<TValue, bool> BuildStaticValidator<TValue>(Expression<Func<TData, TValue>> path);
         protected internal abstract Action<TChild> BuildTreeMutator<TChild>(Expression<Func<TData, TChild>> path);
         protected internal abstract void GetAllMutators(List<MutatorWithPath> mutators);
@@ -267,6 +299,23 @@ namespace GrobExp.Mutators
             return nodeInfo;
         }
 
+        private NodeInfo<T, TContext> GetOrCreateNodeInfo<T, TContext>(Expression<Func<TData, T>> path)
+        {
+            var key = new ExpressionWrapper(path.Body, strictly: false);
+            var nodeInfo = (NodeInfo<T, TContext>)hashtable[key];
+            if (nodeInfo == null)
+            {
+                lock (lockObject)
+                {
+                    nodeInfo = (NodeInfo<T, TContext>)hashtable[key];
+                    if (nodeInfo == null)
+                        hashtable[key] = nodeInfo = new NodeInfo<T, TContext>();
+                }
+            }
+
+            return nodeInfo;
+        }
+
         private readonly Hashtable hashtable = new Hashtable();
         private readonly object lockObject = new object();
 
@@ -275,6 +324,15 @@ namespace GrobExp.Mutators
             public KeyValuePair<Expression, List<KeyValuePair<int, MutatorConfiguration>>>? RawMutators { get; set; }
             public KeyValuePair<Expression, List<MutatorConfiguration>>? Mutators { get; set; }
             public Action<T, ValidationResultTreeNode> Validator { get; set; }
+            public Func<T, bool> StaticValidator { get; set; }
+            public Action<T> TreeMutator { get; set; }
+        }
+
+        private class NodeInfo<T, TContext>
+        {
+            public KeyValuePair<Expression, List<KeyValuePair<int, MutatorConfiguration>>>? RawMutators { get; set; }
+            public KeyValuePair<Expression, List<MutatorConfiguration>>? Mutators { get; set; }
+            public Action<Wrapper<T, TContext>, ValidationResultTreeNode> Validator { get; set; }
             public Func<T, bool> StaticValidator { get; set; }
             public Action<T> TreeMutator { get; set; }
         }
